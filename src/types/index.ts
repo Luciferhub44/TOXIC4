@@ -1,3 +1,5 @@
+import { RequestHandler } from 'express';
+
 // Database Types
 export interface DBProduct {
   id: number;
@@ -213,3 +215,39 @@ export interface ResetPasswordData {
   password: string;
   confirm_password: string;
 }
+
+// API Request/Response Types
+export interface ApiResponse<T = void> {
+  data?: T;
+  error?: string;
+}
+
+// Product API Types
+export interface ProductParams {
+  id: string;
+}
+
+export type GetProductsHandler = RequestHandler<object, ApiResponse<Product[]>>;
+export type GetProductHandler = RequestHandler<ProductParams, ApiResponse<Product>>;
+export type CreateProductHandler = RequestHandler<object, ApiResponse<Product>, ProductFormData>;
+export type UpdateProductHandler = RequestHandler<ProductParams, ApiResponse<Product>, Partial<Product>>;
+export type DeleteProductHandler = RequestHandler<ProductParams, ApiResponse<void>>;
+
+// Collection API Types
+export interface CollectionParams {
+  id: string;
+}
+
+export type GetCollectionsHandler = RequestHandler<object, ApiResponse<Collection[]>>;
+export type GetCollectionHandler = RequestHandler<CollectionParams, ApiResponse<Collection>>;
+export type CreateCollectionHandler = RequestHandler<object, ApiResponse<Collection>, CollectionFormData>;
+export type UpdateCollectionHandler = RequestHandler<CollectionParams, ApiResponse<Collection>, Partial<Collection>>;
+
+// Discount API Types
+export interface VerifyDiscountBody {
+  code: string;
+}
+
+export type GetDiscountsHandler = RequestHandler<object, ApiResponse<DiscountCode[]>>;
+export type VerifyDiscountHandler = RequestHandler<object, ApiResponse<DiscountCode>, VerifyDiscountBody>;
+export type CreateDiscountHandler = RequestHandler<object, ApiResponse<DiscountCode>, Omit<DiscountCode, 'id' | 'created_at' | 'updated_at'>>;
