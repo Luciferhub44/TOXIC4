@@ -1,53 +1,57 @@
-import express, { Request, Response } from 'express';
+// src/api/collections.ts
+import express from 'express';
 import { CollectionModel } from '../models/Collection';
-import type { Collection } from '../types';
+import { GetCollectionsHandler, GetCollectionHandler, CreateCollectionHandler, AddProductToCollectionHandler } from '../types';
 
 const router = express.Router();
 
-interface CollectionParams {
-  id: string;
-}
-
-interface AddProductRequest {
-  productId: number;
-}
-
-router.get('/collections', async (_req: Request, res: Response) => {
+const getAllCollections: GetCollectionsHandler = async (_req, res) => {
   try {
     const collections = await CollectionModel.getAll();
-    res.json(collections);
-  } catch (_error) {
+    res.json({ data: collections });
+  } catch (error) {
     res.status(500).json({ error: 'Failed to fetch collections' });
   }
-});
+};
 
-router.get('/collections/:id', async (req: Request<CollectionParams>, res: Response) => {
+const getCollectionById: GetCollectionHandler = async (req, res) => {
   try {
-    const collection = await CollectionModel.getById(Number(req.params.id));
-    if (!collection) return res.status(404).json({ error: 'Collection not found' });
-    res.json(collection);
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid collection ID' });
+    }
+    const collection = await CollectionModel.getById(id);
+    if (!collection) {
+      return res.status(404).json({ error: 'Collection not found' });
+    }
+    res.json({ data: collection });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch collection' });
   }
-});
+};
 
-router.post('/collections', async (req: Request<{}, {}, Collection>, res: Response) => {
+const createCollection: CreateCollectionHandler = async (req, res) => {
   try {
     const newCollection = await CollectionModel.create(req.body);
-    res.status(201).json(newCollection);
-  } catch (_error) {
+    res.status(201).json({ data: newCollection });
+  } catch (error) {
     res.status(500).json({ error: 'Failed to create collection' });
   }
-});
+};
 
-router.post('/collections/:id/products', async (req: Request<CollectionParams, {}, AddProductRequest>, res: Response) => {
+const addProductToCollection: AddProductToCollectionHandler = async (req, res) => {
   try {
     const { productId } = req.body;
     await CollectionModel.addProduct(Number(req.params.id), productId);
-    res.status(200).json({ message: 'Product added to collection' });
-  } catch (_error) {
+    res.status(200).json({ data: null });
+  } catch (error) {
     res.status(500).json({ error: 'Failed to add product to collection' });
   }
-});
+};
+
+router.get('/collections', getAllCollections);
+router.get('/collections/:id', getCollectionById);
+router.post('/collections', createCollection);
+router.post('/collections/:id/products', addProductToCollection);
 
 export default router; 

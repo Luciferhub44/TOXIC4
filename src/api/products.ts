@@ -1,86 +1,60 @@
-import express, { RequestHandler } from 'express';
+// src/api/products.ts
+import express from 'express';
 import { ProductModel } from '../models/Product';
-import type { Product } from '../types';
+import { GetProductsHandler, GetProductHandler, CreateProductHandler, UpdateProductHandler, DeleteProductHandler } from '../types';
 
 const router = express.Router();
 
-interface ProductParams {
-  id: string;
-}
-
-const getAllProducts: RequestHandler = async (_req, res) => {
+const getAllProducts: GetProductsHandler = async (_req, res) => {
   try {
     const products = await ProductModel.getAll();
-    res.json(products);
+    res.json({ data: products });
   } catch (error) {
-    console.error('Failed to fetch products:', error);
     res.status(500).json({ error: 'Failed to fetch products' });
   }
 };
 
-const getProductById: RequestHandler<ProductParams> = async (req, res) => {
+const getProductById: GetProductHandler = async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Invalid product ID' });
     }
-    
     const product = await ProductModel.getById(id);
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    
-    res.json(product);
+    res.json({ data: product });
   } catch (error) {
-    console.error('Failed to fetch product:', error);
     res.status(500).json({ error: 'Failed to fetch product' });
   }
 };
 
-const createProduct: RequestHandler<{}, {}, Product> = async (req, res) => {
+const createProduct: CreateProductHandler = async (req, res) => {
   try {
     const newProduct = await ProductModel.create(req.body);
-    res.status(201).json(newProduct);
+    res.status(201).json({ data: newProduct });
   } catch (error) {
-    console.error('Failed to create product:', error);
     res.status(500).json({ error: 'Failed to create product' });
   }
 };
 
-const updateProduct: RequestHandler<ProductParams, {}, Partial<Product>> = async (req, res) => {
+const updateProduct: UpdateProductHandler = async (req, res) => {
   try {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid product ID' });
-    }
-
-    const product = await ProductModel.update(id, req.body);
-    if (!product) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
-    res.json(product);
+    const product = await ProductModel.update(Number(req.params.id), req.body);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    res.json({ data: product });
   } catch (error) {
-    console.error('Failed to update product:', error);
     res.status(500).json({ error: 'Failed to update product' });
   }
 };
 
-const deleteProduct: RequestHandler<ProductParams> = async (req, res) => {
+const deleteProduct: DeleteProductHandler = async (req, res) => {
   try {
-    const id = Number(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid product ID' });
-    }
-
-    const success = await ProductModel.delete(id);
-    if (!success) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
+    const success = await ProductModel.delete(Number(req.params.id));
+    if (!success) return res.status(404).json({ error: 'Product not found' });
     res.status(204).send();
   } catch (error) {
-    console.error('Failed to delete product:', error);
     res.status(500).json({ error: 'Failed to delete product' });
   }
 };

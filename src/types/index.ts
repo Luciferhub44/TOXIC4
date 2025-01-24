@@ -222,32 +222,34 @@ export interface ApiResponse<T = void> {
   error?: string;
 }
 
-// Product API Types
-export interface ProductParams {
-  id: string;
-}
+// Base API Types with proper response format
+export type ApiHandler<P = {}, ResBody = unknown, ReqBody = unknown> = 
+  RequestHandler<P, ApiResponse<ResBody>, ReqBody>;
 
-export type GetProductsHandler = RequestHandler<object, ApiResponse<Product[]>>;
-export type GetProductHandler = RequestHandler<ProductParams, ApiResponse<Product>>;
-export type CreateProductHandler = RequestHandler<object, ApiResponse<Product>, ProductFormData>;
-export type UpdateProductHandler = RequestHandler<ProductParams, ApiResponse<Product>, Partial<Product>>;
-export type DeleteProductHandler = RequestHandler<ProductParams, ApiResponse<void>>;
+// Product Handlers
+export interface ProductParams { id: string; }
+export type GetProductHandler = ApiHandler<ProductParams, Product>;
+export type UpdateProductHandler = ApiHandler<ProductParams, Product, Partial<ProductFormData>>;
+export type DeleteProductHandler = ApiHandler<ProductParams>;
+
+// Collection Handlers
+export interface CollectionParams { id: string; }
+export type GetCollectionHandler = ApiHandler<CollectionParams, Collection>;
+
+// Discount Handlers
+export interface VerifyDiscountBody { code: string; }
+export type VerifyDiscountHandler = ApiHandler<Record<string, unknown>, DiscountCode, VerifyDiscountBody>;
+
+// Product API Types
+export type GetProductsHandler = ApiHandler<Record<string, unknown>, Product[]>;
+export type CreateProductHandler = ApiHandler<Record<string, unknown>, Product, ProductFormData>;
 
 // Collection API Types
-export interface CollectionParams {
-  id: string;
-}
-
-export type GetCollectionsHandler = RequestHandler<object, ApiResponse<Collection[]>>;
-export type GetCollectionHandler = RequestHandler<CollectionParams, ApiResponse<Collection>>;
-export type CreateCollectionHandler = RequestHandler<object, ApiResponse<Collection>, CollectionFormData>;
-export type UpdateCollectionHandler = RequestHandler<CollectionParams, ApiResponse<Collection>, Partial<Collection>>;
+export interface AddProductRequest { productId: number; }
+export type GetCollectionsHandler = ApiHandler<Record<string, unknown>, Collection[]>;
+export type CreateCollectionHandler = ApiHandler<Record<string, unknown>, Collection, CollectionFormData>;
+export type AddProductToCollectionHandler = ApiHandler<CollectionParams, void, AddProductRequest>;
 
 // Discount API Types
-export interface VerifyDiscountBody {
-  code: string;
-}
-
-export type GetDiscountsHandler = RequestHandler<object, ApiResponse<DiscountCode[]>>;
-export type VerifyDiscountHandler = RequestHandler<object, ApiResponse<DiscountCode>, VerifyDiscountBody>;
-export type CreateDiscountHandler = RequestHandler<object, ApiResponse<DiscountCode>, Omit<DiscountCode, 'id' | 'created_at' | 'updated_at'>>;
+export type GetDiscountsHandler = ApiHandler<Record<string, unknown>, DiscountCode[]>;
+export type CreateDiscountHandler = ApiHandler<Record<string, unknown>, DiscountCode, Omit<DiscountCode, 'id' | 'created_at' | 'updated_at'>>;
