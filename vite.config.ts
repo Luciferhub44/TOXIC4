@@ -21,6 +21,19 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    host: true
+    host: true,
+    cors: true,
+    proxy: {
+      '/api': {
+        target: 'https://toxic4.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        }
+      }
+    }
   }
 });
