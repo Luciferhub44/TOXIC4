@@ -35,5 +35,8 @@ export default defineConfig({
         }
       }
     }
+  },
+  preview: {
+    allowedHosts: ['toxic4.onrender.com']
   }
 });
