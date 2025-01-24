@@ -1,18 +1,30 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Plus, Edit, Trash2, Upload, Search, Filter } from 'lucide-react';
 import { Product, ProductFormData } from '../../types';
-import { products } from '../../data/products';
 
 const AdminProducts = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductFormData | null>(null);
-  const [localProducts, setLocalProducts] = useState<Product[]>(products);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  const categories = Array.from(new Set(localProducts.map(p => p.category)));
+  const categories = Array.from(new Set(products.map(p => p.category)));
 
-  const filteredProducts = localProducts.filter(product => {
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const filteredProducts = products.filter(product => {
     const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
     const matchesSearch = 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -21,37 +33,25 @@ const AdminProducts = () => {
     return matchesCategory && matchesSearch;
   });
 
-  const handleSubmit = (formData: ProductFormData) => {
-    if (editingProduct?.id) {
-      // Update existing product
-      setLocalProducts(prev =>
-        prev.map(p => (p.id === editingProduct.id ? { ...formData, id: p.id } : p))
-      );
-      // Update products in FeaturedProducts component
-      const event = new CustomEvent('productsUpdated', { detail: localProducts });
-      window.dispatchEvent(event);
-    } else {
-      // Add new product
-      const newProduct = {
-        ...formData,
-        id: Math.max(...localProducts.map(p => p.id)) + 1
-      };
-      setLocalProducts(prev => [...prev, newProduct]);
-      // Update products in FeaturedProducts component
-      const event = new CustomEvent('productsUpdated', { detail: [...localProducts, newProduct] });
-      window.dispatchEvent(event);
+  const handleSubmit = async (formData: ProductFormData) => {
+    try {
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      const newProduct = await response.json();
+      setProducts(prev => [...prev, newProduct]);
+    } catch (error) {
+      console.error('Failed to create product:', error);
     }
-    setIsModalOpen(false);
-    setEditingProduct(null);
   };
 
   const handleDelete = (id: number) => {
     if (confirm('Are you sure you want to delete this product?')) {
-      setLocalProducts(prev => prev.filter(p => p.id !== id));
-      // Update products in FeaturedProducts component
-      const updatedProducts = localProducts.filter(p => p.id !== id);
-      const event = new CustomEvent('productsUpdated', { detail: updatedProducts });
-      window.dispatchEvent(event);
+      setProducts(prev => prev.filter(p => p.id !== id));
     }
   };
 
