@@ -7,12 +7,12 @@ interface SEOProps {
   url?: string;
 }
 
-const SEO = ({ 
+const SEO = ({
   title = 'TOXIC Streetwear | Break the Norms',
-  description = 'Premium streetwear for those who dare to be different. Shop the latest collection of hoodies, tees, and more.',
-  image = 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?ixlib=rb-1.2.1&auto=format&fit=crop&w=2000&q=80',
+  description = 'Premium streetwear for those who dare to be different.',
+  image = '/images/toxoc_logo.png',
   url = 'https://toxicstreetwear.com'
-}: SEOProps) => {
+}: SEOProps): JSX.Element => {
   const siteTitle = title.includes('|') ? title : `${title} | TOXIC Streetwear`;
 
   return (

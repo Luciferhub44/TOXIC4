@@ -1,96 +1,62 @@
 import pool from '../config/database';
+import type { Product } from '../types';
 
-export interface ProductDB {
-  id: number;
-  name: string;
-  price: string;
-  image: string;
-  description?: string;
-  tag?: string;
-  sizes?: string[];
-  colors?: string[];
-  category: string;
-  status: 'active' | 'draft' | 'archived';
-  slug: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export const ProductModel = {
-  async getAll() {
+export class ProductModel {
+  static async getAll(): Promise<Product[]> {
     const query = 'SELECT * FROM products ORDER BY created_at DESC';
     const { rows } = await pool.query(query);
     return rows;
-  },
+  }
 
-  async getById(id: number) {
+  static async getById(id: number): Promise<Product | null> {
     const query = 'SELECT * FROM products WHERE id = $1';
     const { rows } = await pool.query(query, [id]);
-    return rows[0];
-  },
+    return rows[0] || null;
+  }
 
-  async create(product: Omit<ProductDB, 'id' | 'created_at' | 'updated_at'>) {
+  static async create(product: Omit<Product, 'id'>): Promise<Product> {
     const query = `
       INSERT INTO products (
-        name, price, image, description, tag, 
-        sizes, colors, category, status, slug
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        name, price, description, image, tag, sizes, colors,
+        materials, care_instructions, category, status, stock,
+        sku, slug, product_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     const values = [
       product.name,
       product.price,
-      product.image,
       product.description,
-      product.tag,
-      product.sizes,
-      product.colors,
-      product.category,
-      product.status,
-      product.slug
-    ];
-    const { rows } = await pool.query(query, values);
-    return rows[0];
-  },
-
-  async update(id: number, product: Partial<ProductDB>) {
-    const query = `
-      UPDATE products
-      SET 
-        name = COALESCE($1, name),
-        price = COALESCE($2, price),
-        image = COALESCE($3, image),
-        description = COALESCE($4, description),
-        tag = COALESCE($5, tag),
-        sizes = COALESCE($6, sizes),
-        colors = COALESCE($7, colors),
-        category = COALESCE($8, category),
-        status = COALESCE($9, status),
-        slug = COALESCE($10, slug),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
-      RETURNING *
-    `;
-    const values = [
-      product.name,
-      product.price,
       product.image,
-      product.description,
       product.tag,
-      product.sizes,
-      product.colors,
+      JSON.stringify(product.sizes),
+      JSON.stringify(product.colors),
       product.category,
       product.status,
       product.slug,
-      id
+      product.product_id
     ];
     const { rows } = await pool.query(query, values);
     return rows[0];
-  },
-
-  async delete(id: number) {
-    const query = 'DELETE FROM products WHERE id = $1';
-    await pool.query(query, [id]);
   }
-}; 
+
+  static async update(id: number, product: Partial<Product>): Promise<boolean> {
+    const updates = Object.entries(product)
+      .map(([key, value], index) => {
+        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        return `${snakeKey} = $${index + 2}`;
+      })
+      .join(', ');
+
+    const query = `UPDATE products SET ${updates} WHERE id = $1 RETURNING *`;
+    const values = [id, ...Object.values(product)];
+    const { rowCount } = await pool.query(query, values);
+    return rowCount > 0;
+  }
+
+  static async delete(id: number): Promise<boolean> {
+    const query = 'DELETE FROM products WHERE id = $1';
+    const { rowCount } = await pool.query(query, [id]);
+    return rowCount > 0;
+  }
+} 

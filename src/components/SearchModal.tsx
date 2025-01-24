@@ -1,19 +1,26 @@
 import { X, Search as SearchIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { products } from '../data/products';
-import { Product } from '../types';
-import { useEffect } from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { Product } from '../types';
 
 interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const SearchModal = ({ isOpen, onClose }: SearchModalProps) => {
-  const [query, setQuery] = useState('');
+const SearchModal = ({ isOpen, onClose }: SearchModalProps): JSX.Element | null => {
+  const [query, setQuery] = useState<string>('');
   const [results, setResults] = useState<Product[]>([]);
   const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
 
   useEffect(() => {
     if (query.length >= 2) {
@@ -27,6 +34,16 @@ const SearchModal = ({ isOpen, onClose }: SearchModalProps) => {
       setResults([]);
     }
   }, [query]);
+
+  useEffect(() => {
+    // Fetch products from API
+    const fetchProducts = async () => {
+      const response = await fetch('/api/products');
+      const data = await response.json();
+      setProducts(data);
+    };
+    fetchProducts();
+  }, []);
 
   const handleProductClick = (productId: number) => {
     navigate(`/product/${productId}`);

@@ -1,6 +1,11 @@
 import { Ruler } from 'lucide-react';
 
-const sizeChart = {
+interface SizeChartData {
+  headers: string[];
+  rows: string[][];
+}
+
+const sizeChart: SizeChartData = {
   headers: ['Size', 'Chest (in)', 'Length (in)', 'Sleeve (in)'],
   rows: [
     ['S', '38-40', '27', '24'],
@@ -10,7 +15,7 @@ const sizeChart = {
   ]
 };
 
-const SizeGuide: React.FC = () => {
+const SizeGuide = (): JSX.Element => {
   return (
     <div className="bg-gray-900 p-6 rounded-lg">
       <div className="flex items-center mb-6">

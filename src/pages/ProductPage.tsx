@@ -1,33 +1,71 @@
-import  { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Heart, Share2, ShoppingBag, Truck, Shield, Package } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { products } from '../data/products';
 import SEO from '../components/SEO';
 import ProductGallery from '../components/ProductGallery';
 import ProductReviews from '../components/ProductReviews';
 import SizeGuide from '../components/SizeGuide';
 
+interface Product {
+  id: number;
+  name: string;
+  price: string;
+  description: string;
+  image: string;
+  tag?: string;
+  sizes?: string[];
+  colors?: string[];
+  materials?: string[];
+  careInstructions?: string[];
+  createdAt: string;
+  updatedAt: string;
+  category: string;
+  status: string;
+  stock: number;
+  sku: string;
+  slug: string;
+  product_id: number;
+}
+
 const ProductPage = () => {
   const { id } = useParams();
   const { addToCart } = useCart();
-  const product = products.find(p => p.id === Number(id));
-
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
 
-  if (!product) return <div>Product not found</div>;
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${id}`);
+        if (!response.ok) throw new Error('Product not found');
+        const data = await response.json();
+        setProduct(data);
+      } catch (error) {
+        console.error('Error loading product:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const additionalImages = [
-    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
-  ];
+    fetchProduct();
+  }, [id]);
+
+  if (isLoading) return <div className="bg-black min-h-screen">Loading...</div>;
+  if (!product) return <div className="bg-black min-h-screen">Product not found</div>;
+
+  const additionalImages = [];
 
   const handleAddToCart = () => {
-    addToCart(product, quantity, selectedSize, selectedColor);
+    if (!product) return;
+    addToCart({
+      ...product,
+      product_id: Number(product.product_id)
+    }, quantity, selectedSize, selectedColor);
   };
 
   return (

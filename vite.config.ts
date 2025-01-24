@@ -14,7 +14,10 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       sourcemap: true,
       minify: 'terser',
-      target: 'esnext'
+      target: 'esnext',
+      rollupOptions: {
+        external: [/^src\/api\/.*/],
+      }
     },
     resolve: {
       alias: {

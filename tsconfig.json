@@ -21,6 +21,9 @@
       "@pages/*": ["src/pages/*"],
       "@context/*": ["src/context/*"],
       "@utils/*": ["src/utils/*"],
+      "@api/*": ["src/api/*"],
+      "@models/*": ["src/models/*"],
+      "@config/*": ["src/config/*"],
 
     },
 

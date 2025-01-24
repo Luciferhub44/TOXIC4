@@ -1,6 +1,15 @@
 import { Star, Quote } from 'lucide-react';
 
-const testimonials = [
+interface Testimonial {
+  id: number;
+  name: string;
+  role: string;
+  image: string;
+  quote: string;
+  rating: number;
+}
+
+const testimonials: Testimonial[] = [
   {
     id: 1,
     name: 'Alex Chen',
@@ -27,7 +36,7 @@ const testimonials = [
   }
 ];
 
-const Testimonials = () => {
+const Testimonials = (): JSX.Element => {
   return (
     <section className="bg-gray-900 py-16" aria-label="Customer testimonials">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
