@@ -42,6 +42,7 @@ const ProductPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
           {/* Product Image */}
           <ProductGallery
+            productId={product.id}
             mainImage={product.image}
             productName={product.name}
             additionalImages={additionalImages}

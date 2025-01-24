@@ -12,36 +12,67 @@ import AdminDiscounts from '../components/admin/AdminDiscounts';
 
 const AdminPage = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if admin is authenticated on mount
-    const isAuth = localStorage.getItem('adminAuthenticated') === 'true';
-    setIsAuthenticated(isAuth);
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/admin/check-auth');
+        const isAuth = response.ok;
+        setIsAuthenticated(isAuth);
+        
+        if (isAuth && window.location.pathname === '/admin') {
+          navigate('/admin/dashboard');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // Redirect to admin dashboard if authenticated
-    if (isAuth && window.location.pathname === '/admin') {
-      navigate('/admin/dashboard');
-    }
+    checkAuth();
   }, [navigate]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === import.meta.env.VITE_ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      localStorage.setItem('adminAuthenticated', 'true');
-      navigate('/admin/dashboard');
-    } else {
-      alert('Invalid password');
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+
+      if (response.ok) {
+        setIsAuthenticated(true);
+        navigate('/admin/dashboard');
+      } else {
+        alert('Invalid password');
+      }
+    } catch (error) {
+      console.error('Login failed:', error);
+      alert('Login failed. Please try again.');
     }
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('adminAuthenticated');
-    navigate('/admin', { replace: true });
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST' });
+      setIsAuthenticated(false);
+      navigate('/admin', { replace: true });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="text-white">Loading...</div>
+    </div>;
+  }
 
   if (!isAuthenticated) {
     return (

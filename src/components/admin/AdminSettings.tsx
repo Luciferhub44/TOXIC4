@@ -1,44 +1,92 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Save, Upload } from 'lucide-react';
 import { AdminSettings as SettingsType } from '../../types';
 
 const AdminSettings = () => {
   const [settings, setSettings] = useState<SettingsType>({
-    siteName: 'TOXIC Streetwear',
-    siteDescription: 'Premium streetwear for those who dare to be different.',
+    siteName: '',
+    siteDescription: '',
     logo: '',
     socialLinks: {
-      instagram: 'https://instagram.com/toxicstreetwear',
-      twitter: 'https://twitter.com/toxicstreetwear',
-      facebook: 'https://facebook.com/toxicstreetwear'
+      instagram: '',
+      twitter: '',
+      facebook: ''
     },
-    contactEmail: 'support@toxicstreetwear.com'
+    contactEmail: ''
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fetch settings on component mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        const data = await response.json();
+        setSettings(data);
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        alert('Error loading settings. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSettings(prev => ({ ...prev, logo: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const formData = new FormData();
+        formData.append('logo', file);
+
+        const response = await fetch('/api/settings/logo', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error('Failed to upload logo');
+        const data = await response.json();
+        
+        setSettings(prev => ({ ...prev, logo: data.logoUrl }));
+      } catch (error) {
+        console.error('Error uploading logo:', error);
+        alert('Error uploading logo. Please try again.');
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSaving(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsLoading(false);
-    alert('Settings saved successfully!');
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+
+      if (!response.ok) throw new Error('Failed to save settings');
+      const updatedSettings = await response.json();
+      setSettings(updatedSettings);
+      alert('Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Error saving settings. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return <div className="text-white">Loading settings...</div>;
+  }
 
   return (
     <div>
@@ -178,12 +226,12 @@ const AdminSettings = () => {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isSaving}
             className={`bg-[#FFD513] text-black px-6 py-2 rounded-md font-bold hover:bg-[#FAFF34] transition-colors flex items-center ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
+              isSaving ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            {isLoading ? (
+            {isSaving ? (
               <>
                 <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />
                 Saving...

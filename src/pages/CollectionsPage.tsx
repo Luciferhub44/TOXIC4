@@ -1,16 +1,41 @@
-import { useState } from 'react';
-import { products } from '../data/products';
-import { useCart } from '../context/CartContext';
+import { useState, useEffect } from 'react';
 import { ShoppingBag, Filter } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 
-const categories = Array.from(new Set(products.map(p => p.category)));
-
 const CollectionsPage = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'price'>('name');
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [sortBy, setSortBy] = useState('name');
+  const [isLoading, setIsLoading] = useState(true);
   const { addToCart } = useCart();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [productsRes, categoriesRes] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/categories')
+        ]);
+        
+        const productsData = await productsRes.json();
+        const categoriesData = await categoriesRes.json();
+        
+        setProducts(productsData);
+        setCategories(categoriesData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (isLoading) return <div className="bg-black min-h-screen py-16">Loading...</div>;
 
   const filteredProducts = products
     .filter(product => selectedCategory === 'all' || product.category === selectedCategory)

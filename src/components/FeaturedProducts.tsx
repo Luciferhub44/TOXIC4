@@ -2,39 +2,34 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import ImageWithFallback from './ImageWithFallback';
 import { Product } from '@/types';
-
-const products = [
-  {
-    id: 1,
-    name: 'TOXIC HAZARD HOODIE V2',
-    price: '$129.99',
-    tag: 'NEW DROP',
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 2,
-    name: 'RADIOACTIVE TEE',
-    price: '$49.99',
-    tag: 'BEST SELLER',
-    image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 3,
-    name: 'BIOHAZARD CARGO PANTS',
-    price: '$149.99',
-    image: 'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
-  },
-  {
-    id: 4,
-    name: 'FALLOUT JACKET',
-    price: '$199.99',
-    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
-  }
-];
+import { useState, useEffect } from 'react';
 
 const FeaturedProducts = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        const response = await fetch('/api/products/featured');
+        if (!response.ok) throw new Error('Failed to fetch featured products');
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error('Error loading featured products:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFeaturedProducts();
+  }, []);
+
+  if (isLoading) {
+    return <div className="bg-black py-16">Loading...</div>;
+  }
 
   return (
     <div className="bg-black py-16">

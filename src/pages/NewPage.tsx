@@ -1,11 +1,30 @@
 import { AlertCircle, Clock, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { products } from '../data/products';
-
-const newProducts = products.filter(p => p.tag === 'NEW DROP');
+import { useState, useEffect } from 'react';
 
 const NewPage = () => {
   const navigate = useNavigate();
+  const [newProducts, setNewProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNewProducts = async () => {
+      try {
+        const response = await fetch('/api/products/new');
+        if (!response.ok) throw new Error('Failed to fetch new products');
+        const data = await response.json();
+        setNewProducts(data);
+      } catch (error) {
+        console.error('Error loading new products:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNewProducts();
+  }, []);
+
+  if (isLoading) return <div className="bg-black min-h-screen">Loading...</div>;
 
   return (
     <div className="bg-black min-h-screen">

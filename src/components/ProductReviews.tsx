@@ -1,4 +1,5 @@
 import { Star, ThumbsUp, MessageCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface Review {
   id: number;
@@ -17,36 +18,51 @@ interface ProductReviewsProps {
   productId: number;
 }
 
-const reviews: Review[] = [
-  {
-    id: 1,
-    author: "James Wilson",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80",
-    rating: 5,
-    date: "2024-03-15",
-    title: "Perfect fit and amazing quality",
-    content: "The attention to detail on this piece is incredible. The fabric quality is top-notch, and the fit is exactly as described. I've received numerous compliments wearing it.",
-    helpful: 24,
-    verified: true,
-    images: [
-      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
-      "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80"
-    ]
-  },
-  {
-    id: 2,
-    author: "Emily Chen",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=200&q=80",
-    rating: 4,
-    date: "2024-03-10",
-    title: "Great design, slightly large",
-    content: "Love the design and material quality. Just note that it runs slightly large, so consider sizing down if you're between sizes.",
-    helpful: 15,
-    verified: true
-  }
-];
-
 const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch(`/api/products/${productId}/reviews`);
+        if (!response.ok) throw new Error('Failed to fetch reviews');
+        const data = await response.json();
+        setReviews(data);
+      } catch (error) {
+        console.error('Error loading reviews:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [productId]);
+
+  const handleHelpful = async (reviewId: number) => {
+    try {
+      const response = await fetch(`/api/reviews/${reviewId}/helpful`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to mark review as helpful');
+      const updatedReview = await response.json();
+      
+      setReviews(prev => 
+        prev.map(review => 
+          review.id === reviewId 
+            ? { ...review, helpful: updatedReview.helpful }
+            : review
+        )
+      );
+    } catch (error) {
+      console.error('Error marking review as helpful:', error);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="mt-16">Loading reviews...</div>;
+  }
+
   const averageRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length;
   const totalReviews = reviews.length;
 
@@ -137,7 +153,10 @@ const ProductReviews: React.FC<ProductReviewsProps> = ({ productId }) => {
             )}
 
             <div className="flex items-center text-sm text-gray-400">
-              <button className="flex items-center hover:text-white transition-colors">
+              <button 
+                onClick={() => handleHelpful(review.id)}
+                className="flex items-center hover:text-white transition-colors"
+              >
                 <ThumbsUp className="w-4 h-4 mr-1" />
                 Helpful ({review.helpful})
               </button>

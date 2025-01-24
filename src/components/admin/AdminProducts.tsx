@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Plus, Edit, Trash2, Upload, Search, Filter } from 'lucide-react';
-import { Product, ProductFormData } from '../../types';
+import type { Product, ProductFormData } from '../../types';
 
 const AdminProducts = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,10 +15,12 @@ const AdminProducts = () => {
     const fetchProducts = async () => {
       try {
         const response = await fetch('/api/products');
+        if (!response.ok) throw new Error('Failed to fetch products');
         const data = await response.json();
         setProducts(data);
       } catch (error) {
         console.error('Failed to fetch products:', error);
+        alert('Failed to fetch products. Please try again.');
       }
     };
     fetchProducts();
@@ -35,23 +37,49 @@ const AdminProducts = () => {
 
   const handleSubmit = async (formData: ProductFormData) => {
     try {
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const method = editingProduct ? 'PUT' : 'POST';
+      const url = editingProduct?.product_id 
+        ? `/api/products/${editingProduct.product_id}` 
+        : '/api/products';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const newProduct = await response.json();
-      setProducts(prev => [...prev, newProduct]);
+
+      if (!response.ok) throw new Error('Failed to save product');
+      
+      const savedProduct = await response.json();
+      
+      setProducts(prev => 
+        editingProduct
+          ? prev.map(p => p.product_id === savedProduct.product_id ? savedProduct : p)
+          : [...prev, savedProduct]
+      );
+      
+      setIsModalOpen(false);
+      setEditingProduct(null);
     } catch (error) {
-      console.error('Failed to create product:', error);
+      console.error('Failed to save product:', error);
+      alert('Failed to save product. Please try again.');
     }
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to delete this product?')) {
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    
+    try {
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete product');
+      
       setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('Failed to delete product:', error);
+      alert('Failed to delete product. Please try again.');
     }
   };
 
@@ -228,8 +256,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       colors: [],
       status: 'draft',
       slug: '',
-      createdAt: '',
-      updatedAt: ''
+      product_id: 0
     }
   );
 

@@ -1,16 +1,47 @@
 import { Plus, Edit, Trash2, Upload, Search, Filter, Archive, Star } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Collection, CollectionFormData } from '../../types';
-import { collections } from '../../data/collections';
-import { products } from '../../data/products';
-import { formatDate, generateSlug } from '../../utils/formatters';
+import { formatDate } from '../../utils/formatters';
 
 const AdminCollections = () => {
-  const [localCollections, setLocalCollections] = useState<Collection[]>(collections);
+  const [localCollections, setLocalCollections] = useState<Collection[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Collection['status']>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
+  const [productList, setProductList] = useState<Product[]>([]);
+
+  // Fetch collections on component mount
+  useEffect(() => {
+    const fetchCollections = async () => {
+      try {
+        const response = await fetch('/api/collections');
+        if (!response.ok) throw new Error('Failed to fetch collections');
+        const data = await response.json();
+        setLocalCollections(data);
+      } catch (error) {
+        console.error('Error fetching collections:', error);
+        // Add error handling UI if needed
+      }
+    };
+
+    fetchCollections();
+  }, []);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (!response.ok) throw new Error('Failed to fetch products');
+        const data = await response.json();
+        setProductList(data);
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const filteredCollections = localCollections.filter(collection => {
     const matchesStatus = statusFilter === 'all' || collection.status === statusFilter;
@@ -20,40 +51,51 @@ const AdminCollections = () => {
     return matchesStatus && matchesSearch;
   });
 
-  const handleSubmit = (formData: CollectionFormData) => {
-    const now = new Date().toISOString();
-    
-    if (editingCollection) {
-      setLocalCollections(prev =>
-        prev.map(c =>
-          c.id === editingCollection.id
-            ? {
-                ...formData,
-                id: c.id,
-                slug: generateSlug(formData.name),
-                createdAt: c.createdAt,
-                updatedAt: now
-              }
-            : c
-        )
-      );
-    } else {
-      const newCollection = {
-        ...formData,
-        id: Math.max(...localCollections.map(c => c.id)) + 1,
-        slug: generateSlug(formData.name),
-        createdAt: now,
-        updatedAt: now
-      };
-      setLocalCollections(prev => [...prev, newCollection]);
+  const handleSubmit = async (formData: CollectionFormData) => {
+    try {
+      const method = editingCollection ? 'PUT' : 'POST';
+      const url = editingCollection 
+        ? `/api/collections/${editingCollection.id}` 
+        : '/api/collections';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) throw new Error('Failed to save collection');
+      const savedCollection = await response.json();
+
+      setLocalCollections(prev => {
+        if (editingCollection) {
+          return prev.map(c => c.id === savedCollection.id ? savedCollection : c);
+        }
+        return [...prev, savedCollection];
+      });
+
+      setIsModalOpen(false);
+      setEditingCollection(null);
+    } catch (error) {
+      console.error('Error saving collection:', error);
+      // Add error handling UI if needed
     }
-    setIsModalOpen(false);
-    setEditingCollection(null);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this collection?')) {
-      setLocalCollections(prev => prev.filter(c => c.id !== id));
+      try {
+        const response = await fetch(`/api/collections/${id}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete collection');
+        
+        setLocalCollections(prev => prev.filter(c => c.id !== id));
+      } catch (error) {
+        console.error('Error deleting collection:', error);
+        // Add error handling UI if needed
+      }
     }
   };
 
@@ -216,6 +258,13 @@ const AdminCollections = () => {
   );
 };
 
+interface Product {
+  id: number;
+  name: string;
+  image: string;
+  price: string;
+}
+
 interface CollectionFormProps {
   initialData: Collection | null;
   onSubmit: (data: CollectionFormData) => void;
@@ -227,6 +276,23 @@ const CollectionForm: React.FC<CollectionFormProps> = ({
   onSubmit,
   onCancel
 }) => {
+  const [products, setProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (!response.ok) throw new Error('Failed to fetch products');
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error('Failed to fetch products:', error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     description: initialData?.description || '',

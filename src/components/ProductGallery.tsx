@@ -1,19 +1,39 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ProductGalleryProps {
+  productId: number;
   mainImage: string;
   productName: string;
   additionalImages?: string[];
 }
 
 const ProductGallery: React.FC<ProductGalleryProps> = ({
+  productId,
   mainImage,
   productName,
   additionalImages = []
 }) => {
-  const allImages = [mainImage, ...additionalImages];
+  const [allImages, setAllImages] = useState<string[]>([mainImage, ...additionalImages]);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProductImages = async () => {
+      try {
+        const response = await fetch(`/api/products/${productId}/images`);
+        if (!response.ok) throw new Error('Failed to fetch product images');
+        const data = await response.json();
+        setAllImages([mainImage, ...data]);
+      } catch (error) {
+        console.error('Error loading product images:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProductImages();
+  }, [productId, mainImage]);
 
   const nextImage = () => {
     setSelectedImage((prev) => (prev + 1) % allImages.length);

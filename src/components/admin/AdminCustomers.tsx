@@ -1,58 +1,21 @@
 import { Search, Filter, Mail, ExternalLink, Edit, Trash2, UserPlus } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
 interface Customer {
   id: number;
   name: string;
   email: string;
-  joinDate: string;
+  join_date: string;
   orders: number;
-  totalSpent: string;
-  status: 'Active' | 'Inactive';
+  total_spent: string;
+  status: 'active' | 'inactive';
   phone?: string;
   address?: string;
   notes?: string;
 }
 
-const initialCustomers: Customer[] = [
-  {
-    id: 1,
-    name: 'John Doe',
-    email: 'john@example.com',
-    joinDate: '2024-02-15',
-    orders: 3,
-    totalSpent: '$529.97',
-    status: 'Active',
-    phone: '+1 (555) 123-4567',
-    address: '123 Main St, New York, NY 10001',
-    notes: 'VIP customer, prefers email communication'
-  },
-  {
-    id: 2,
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    joinDate: '2024-01-20',
-    orders: 5,
-    totalSpent: '$849.95',
-    status: 'Active',
-    phone: '+1 (555) 987-6543',
-    address: '456 Oak Ave, Los Angeles, CA 90001',
-    notes: 'Frequent buyer, interested in new collections'
-  },
-  {
-    id: 3,
-    name: 'Mike Johnson',
-    email: 'mike@example.com',
-    joinDate: '2024-03-01',
-    orders: 1,
-    totalSpent: '$129.99',
-    status: 'Inactive',
-    phone: '+1 (555) 456-7890',
-    address: '789 Pine St, Chicago, IL 60601'
-  }
-];
-
 const AdminCustomers = () => {
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -61,6 +24,22 @@ const AdminCustomers = () => {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailContent, setEmailContent] = useState('');
   const [selectedCustomers, setSelectedCustomers] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch('/api/customers');
+        if (!response.ok) throw new Error('Failed to fetch customers');
+        const data = await response.json();
+        setCustomers(data);
+      } catch (error) {
+        console.error('Failed to fetch customers:', error);
+        alert('Error loading customers. Please try again.');
+      }
+    };
+
+    fetchCustomers();
+  }, []);
 
   const filteredCustomers = customers.filter(customer => {
     const matchesStatus = statusFilter === 'all' || customer.status === statusFilter;
@@ -72,37 +51,57 @@ const AdminCustomers = () => {
     return matchesStatus && matchesSearch;
   });
 
-  const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to delete this customer?')) {
-      setCustomers(prev => prev.filter(c => c.id !== id));
-      setSelectedCustomers(prev => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
+  const handleSubmit = async (formData: Omit<Customer, 'id' | 'orders' | 'total_spent'>) => {
+    try {
+      const method = selectedCustomer ? 'PUT' : 'POST';
+      const url = selectedCustomer 
+        ? `/api/customers/${selectedCustomer.id}` 
+        : '/api/customers';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       });
+
+      if (!response.ok) throw new Error('Failed to save customer');
+      const savedCustomer = await response.json();
+
+      setCustomers(prev => {
+        if (selectedCustomer) {
+          return prev.map(c => c.id === savedCustomer.id ? savedCustomer : c);
+        }
+        return [...prev, savedCustomer];
+      });
+
+      setIsModalOpen(false);
+      setSelectedCustomer(null);
+    } catch (error) {
+      console.error('Failed to save customer:', error);
+      alert('Error saving customer. Please try again.');
     }
   };
 
-  const handleSubmit = (formData: Omit<Customer, 'id' | 'orders' | 'totalSpent'>) => {
-    if (selectedCustomer) {
-      setCustomers(prev =>
-        prev.map(c =>
-          c.id === selectedCustomer.id
-            ? { ...c, ...formData }
-            : c
-        )
-      );
-    } else {
-      const newCustomer = {
-        ...formData,
-        id: Math.max(...customers.map(c => c.id)) + 1,
-        orders: 0,
-        totalSpent: '$0.00'
-      };
-      setCustomers(prev => [...prev, newCustomer]);
+  const handleDelete = async (id: number) => {
+    if (confirm('Are you sure you want to delete this customer?')) {
+      try {
+        const response = await fetch(`/api/customers/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) throw new Error('Failed to delete customer');
+
+        setCustomers(prev => prev.filter(c => c.id !== id));
+        setSelectedCustomers(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      } catch (error) {
+        console.error('Failed to delete customer:', error);
+        alert('Error deleting customer. Please try again.');
+      }
     }
-    setIsModalOpen(false);
-    setSelectedCustomer(null);
   };
 
   const handleSendEmail = (e: React.FormEvent) => {
@@ -180,8 +179,8 @@ const AdminCustomers = () => {
             className="pl-10 pr-4 py-2 bg-gray-900 text-white rounded-md border border-gray-800 focus:outline-none focus:ring-2 focus:ring-[#FFD513] appearance-none cursor-pointer"
           >
             <option value="all">All Status</option>
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
         </div>
       </div>
@@ -239,21 +238,21 @@ const AdminCustomers = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  {customer.joinDate}
+                  {customer.join_date}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                   {customer.orders}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-[#FFD513] font-medium">
-                  {customer.totalSpent}
+                  {customer.total_spent}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    customer.status === 'Active' 
+                    customer.status === 'active' 
                       ? 'bg-green-100 text-green-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {customer.status}
+                    {customer.status === 'active' ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -315,8 +314,8 @@ const AdminCustomers = () => {
                   phone: formData.get('phone') as string,
                   address: formData.get('address') as string,
                   notes: formData.get('notes') as string,
-                  status: formData.get('status') as 'Active' | 'Inactive',
-                  joinDate: formData.get('joinDate') as string
+                  status: formData.get('status') as 'active' | 'inactive',
+                  join_date: formData.get('join_date') as string
                 });
               }}>
                 <div className="space-y-6">
@@ -365,8 +364,8 @@ const AdminCustomers = () => {
                       </label>
                       <input
                         type="date"
-                        name="joinDate"
-                        defaultValue={selectedCustomer?.joinDate || new Date().toISOString().split('T')[0]}
+                        name="join_date"
+                        defaultValue={selectedCustomer?.join_date || new Date().toISOString().split('T')[0]}
                         className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#FFD513]"
                         required
                       />
@@ -403,11 +402,11 @@ const AdminCustomers = () => {
                     </label>
                     <select
                       name="status"
-                      defaultValue={selectedCustomer?.status || 'Active'}
+                      defaultValue={selectedCustomer?.status || 'active'}
                       className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#FFD513]"
                     >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
                     </select>
                   </div>
 
@@ -531,7 +530,7 @@ const AdminCustomers = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-400">Join Date</p>
-                    <p className="text-white">{selectedCustomer.joinDate}</p>
+                    <p className="text-white">{selectedCustomer.join_date}</p>
                   </div>
                 </div>
 
@@ -556,7 +555,7 @@ const AdminCustomers = () => {
                     </div>
                     <div>
                       <p className="text-sm text-gray-400">Total Spent</p>
-                      <p className="text-xl font-bold text-[#FFD513]">{selectedCustomer.totalSpent}</p>
+                      <p className="text-xl font-bold text-[#FFD513]">{selectedCustomer.total_spent}</p>
                     </div>
                   </div>
                 </div>

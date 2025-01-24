@@ -1,9 +1,30 @@
 import { ShoppingBag } from 'lucide-react';
-import { bundles } from '../data/bundles';
 import { useCart } from '../context/CartContext';
+import { useState, useEffect } from 'react';
 
 const BundlesPage = () => {
   const { addToCart } = useCart();
+  const [bundles, setBundles] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBundles = async () => {
+      try {
+        const response = await fetch('/api/bundles');
+        if (!response.ok) throw new Error('Failed to fetch bundles');
+        const data = await response.json();
+        setBundles(data);
+      } catch (error) {
+        console.error('Error loading bundles:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBundles();
+  }, []);
+
+  if (isLoading) return <div className="bg-black min-h-screen py-16">Loading...</div>;
 
   const handleAddBundle = (bundle) => {
     // Add each product in the bundle to the cart

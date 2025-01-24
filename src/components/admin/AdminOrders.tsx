@@ -1,50 +1,112 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, Search, Filter, Eye, Download } from 'lucide-react';
 
-const orders = [
-  {
-    id: '#ORD-001',
-    customer: 'John Doe',
-    email: 'john@example.com',
-    date: '2024-03-20',
-    total: '$129.99',
-    status: 'Processing',
-    items: [
-      { name: 'TOXIC HAZARD HOODIE V2', quantity: 1, price: '$129.99' }
-    ]
-  },
-  {
-    id: '#ORD-002',
-    customer: 'Jane Smith',
-    email: 'jane@example.com',
-    date: '2024-03-19',
-    total: '$249.98',
-    status: 'Shipped',
-    items: [
-      { name: 'RADIOACTIVE TEE', quantity: 2, price: '$99.98' },
-      { name: 'BIOHAZARD CARGO PANTS', quantity: 1, price: '$149.99' }
-    ]
-  }
-];
+interface OrderItem {
+  id: number;
+  name: string;
+  quantity: number;
+  price: string;
+}
+
+interface Order {
+  id: string;
+  customer: string;
+  email: string;
+  date: string;
+  total: string;
+  status: 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
+  items: OrderItem[];
+}
 
 const AdminOrders = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const response = await fetch('/api/orders');
+        if (!response.ok) throw new Error('Failed to fetch orders');
+        const data = await response.json();
+        setOrders(data);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        alert('Error loading orders. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
+
+  const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update order status');
+      const updatedOrder = await response.json();
+
+      setOrders(prev => 
+        prev.map(order => order.id === orderId ? updatedOrder : order)
+      );
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      alert('Error updating order status. Please try again.');
+    }
+  };
+
+  const exportOrders = async () => {
+    try {
+      const response = await fetch('/api/orders/export', {
+        method: 'POST',
+      });
+
+      if (!response.ok) throw new Error('Failed to export orders');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `orders-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting orders:', error);
+      alert('Error exporting orders. Please try again.');
+    }
+  };
 
   const filteredOrders = orders.filter(order => {
     const matchesStatus = selectedStatus === 'all' || order.status === selectedStatus;
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = 
+      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
+  if (isLoading) {
+    return <div className="text-white">Loading orders...</div>;
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-2xl font-bold text-white">Orders</h2>
-        <button className="bg-[#FFD513] text-black px-4 py-2 rounded-md font-bold hover:bg-[#FAFF34] transition-colors flex items-center">
+        <button 
+          onClick={exportOrders}
+          className="bg-[#FFD513] text-black px-4 py-2 rounded-md font-bold hover:bg-[#FAFF34] transition-colors flex items-center"
+        >
           <Download className="w-5 h-5 mr-2" />
           Export Orders
         </button>
@@ -127,14 +189,21 @@ const AdminOrders = () => {
                   {order.total}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
-                    order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' :
-                    order.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {order.status}
-                  </span>
+                  <select
+                    value={order.status}
+                    onChange={(e) => updateOrderStatus(order.id, e.target.value as Order['status'])}
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      order.status === 'Delivered' ? 'bg-green-100 text-green-800' :
+                      order.status === 'Shipped' ? 'bg-blue-100 text-blue-800' :
+                      order.status === 'Cancelled' ? 'bg-red-100 text-red-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}
+                  >
+                    <option value="Processing">Processing</option>
+                    <option value="Shipped">Shipped</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button

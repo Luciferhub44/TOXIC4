@@ -1,38 +1,91 @@
 import { DollarSign, ShoppingBag, Users, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { products } from '../../data/products';
+import { useState, useEffect } from 'react';
+
+interface DashboardStats {
+  revenue: {
+    value: string;
+    change: number;
+    isPositive: boolean;
+  };
+  orders: {
+    value: string;
+    change: number;
+    isPositive: boolean;
+  };
+  customers: {
+    value: string;
+    change: number;
+    isPositive: boolean;
+  };
+  averageOrder: {
+    value: string;
+    change: number;
+    isPositive: boolean;
+  };
+}
+
+interface RecentOrder {
+  id: number;
+  customer: string;
+  total: string;
+  status: string;
+  date: string;
+}
+
+interface TopProduct {
+  id: number;
+  name: string;
+  image: string;
+  price: string;
+  category: string;
+}
 
 const AdminDashboard = () => {
-  // Mock data for demonstration
-  const stats = {
-    revenue: {
-      value: '$12,345',
-      change: 23.1,
-      isPositive: true
-    },
-    orders: {
-      value: '156',
-      change: 12.5,
-      isPositive: true
-    },
-    customers: {
-      value: '1,893',
-      change: 8.2,
-      isPositive: true
-    },
-    averageOrder: {
-      value: '$78.90',
-      change: -2.3,
-      isPositive: false
-    }
-  };
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const recentOrders = [
-    { id: 1, customer: 'John Doe', total: '$129.99', status: 'Processing', date: '2024-03-20' },
-    { id: 2, customer: 'Jane Smith', total: '$249.98', status: 'Shipped', date: '2024-03-19' },
-    { id: 3, customer: 'Mike Johnson', total: '$89.99', status: 'Delivered', date: '2024-03-18' },
-  ];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [statsRes, ordersRes, productsRes] = await Promise.all([
+          fetch('/api/stats'),
+          fetch('/api/orders/recent'),
+          fetch('/api/products/top')
+        ]);
 
-  const topProducts = products.slice(0, 4);
+        if (!statsRes.ok || !ordersRes.ok || !productsRes.ok) {
+          throw new Error('Failed to fetch dashboard data');
+        }
+
+        const [statsData, ordersData, productsData] = await Promise.all([
+          statsRes.json(),
+          ordersRes.json(),
+          productsRes.json()
+        ]);
+
+        setStats(statsData);
+        setRecentOrders(ordersData);
+        setTopProducts(productsData);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        // Add error UI handling if needed
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (isLoading) {
+    return <div className="text-white">Loading dashboard data...</div>;
+  }
+
+  if (!stats) {
+    return <div className="text-white">Error loading dashboard data</div>;
+  }
 
   return (
     <div className="space-y-8">

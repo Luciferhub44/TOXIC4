@@ -1,46 +1,98 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Upload } from 'lucide-react';
-import type { Bundle, BundleFormData } from '../../types';
-import { bundles } from '../../data/bundles';
-import { products } from '../../data/products';
+import type { Bundle, BundleFormData, Product } from '../../types';
 
-
+interface BundleFormProps {
+  initialData: Bundle | null;
+  onSubmit: (data: BundleFormData) => void;
+  onCancel: () => void;
+  products: Product[];
+}
 
 const AdminBundles = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBundle, setEditingBundle] = useState<Bundle | null>(null);
-  const [localBundles, setLocalBundles] = useState<Bundle[]>(bundles);
+  const [bundles, setBundles] = useState<Bundle[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
-  const handleSubmit = (formData: BundleFormData) => {
-    if (editingBundle?.id) {
-      // Update existing bundle
-      setLocalBundles(prev =>
-        prev.map(b => (b.id === editingBundle.id ? {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [bundlesRes, productsRes] = await Promise.all([
+          fetch('/api/bundles'),
+          fetch('/api/products')
+        ]);
+
+        if (!bundlesRes.ok || !productsRes.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        const [bundlesData, productsData] = await Promise.all([
+          bundlesRes.json(),
+          productsRes.json()
+        ]);
+
+        setBundles(bundlesData);
+        setProducts(productsData);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+        alert('Failed to fetch data. Please try again.');
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleSubmit = async (formData: BundleFormData) => {
+    try {
+      const method = editingBundle ? 'PUT' : 'POST';
+      const url = editingBundle 
+        ? `/api/bundles/${editingBundle.id}` 
+        : '/api/bundles';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           ...formData,
-          id: b.id,
-          products: products.filter(p => formData.productIds.includes(p.id)),
-          createdAt: b.createdAt,
-          updatedAt: new Date().toISOString()
-        } : b))
+          valid_from: formData.valid_from,
+          valid_until: formData.valid_until,
+          product_ids: Array.from(formData.product_ids)
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save bundle');
+      
+      const savedBundle = await response.json();
+      
+      setBundles(prev => 
+        editingBundle
+          ? prev.map(b => b.id === savedBundle.id ? savedBundle : b)
+          : [...prev, savedBundle]
       );
-    } else {
-      // Add new bundle
-      const newBundle: Bundle = {
-        ...formData,
-        id: Math.max(...localBundles.map(b => b.id)) + 1,
-        products: products.filter(p => formData.productIds.includes(p.id)),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      setLocalBundles(prev => [...prev, newBundle]);
+      
+      setIsModalOpen(false);
+      setEditingBundle(null);
+    } catch (error) {
+      console.error('Failed to save bundle:', error);
+      alert('Failed to save bundle. Please try again.');
     }
-    setIsModalOpen(false);
-    setEditingBundle(null);
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm('Are you sure you want to delete this bundle?')) {
-      setLocalBundles(prev => prev.filter(b => b.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this bundle?')) return;
+    
+    try {
+      const response = await fetch(`/api/bundles/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete bundle');
+      
+      setBundles(prev => prev.filter(b => b.id !== id));
+    } catch (error) {
+      console.error('Failed to delete bundle:', error);
+      alert('Failed to delete bundle. Please try again.');
     }
   };
 
@@ -61,7 +113,7 @@ const AdminBundles = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {localBundles.map(bundle => (
+        {bundles.map(bundle => (
           <div key={bundle.id} className="bg-gray-900 rounded-lg overflow-hidden">
             <img
               src={bundle.image}
@@ -129,6 +181,7 @@ const AdminBundles = () => {
                   setIsModalOpen(false);
                   setEditingBundle(null);
                 }}
+                products={products}
               />
             </div>
           </div>
@@ -138,12 +191,6 @@ const AdminBundles = () => {
   );
 };
 
-interface BundleFormProps {
-  initialData: Bundle | null;
-  onSubmit: (data: BundleFormData) => void;
-  onCancel: () => void;
-}
-
 const calculateSavings = (totalPrice: number, bundlePrice: number): string => {
   return `$${(totalPrice - bundlePrice).toFixed(2)}`;
 };
@@ -151,7 +198,8 @@ const calculateSavings = (totalPrice: number, bundlePrice: number): string => {
 const BundleForm: React.FC<BundleFormProps> = ({
   initialData,
   onSubmit,
-  onCancel
+  onCancel,
+  products
 }) => {
   const [formData, setFormData] = useState<BundleFormData>({
     name: initialData?.name || '',
@@ -162,13 +210,13 @@ const BundleForm: React.FC<BundleFormProps> = ({
     featured: initialData?.featured || false,
     slug: initialData?.slug || '',
     description: initialData?.description || '',
-    validFrom: initialData?.validFrom || '',
-    validUntil: initialData?.validUntil || '',
-    productIds: initialData?.products.map(p => p.id) || []
+    valid_from: initialData?.valid_from || '',
+    valid_until: initialData?.valid_until || '',
+    product_ids: initialData?.products?.map(p => p.id) || []
   });
 
   const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(
-    new Set(initialData?.products.map(p => p.id))
+    new Set(initialData?.products.map(p => p.id) || [])
   );
 
   const [currentSavings, setCurrentSavings] = useState('$0.00');
@@ -232,7 +280,7 @@ const BundleForm: React.FC<BundleFormProps> = ({
         ? ((totalPrice - bundlePrice) / totalPrice * 100).toFixed(1)
         : '0'
     );
-  }, [formData.price, selectedProductIds]);
+  }, [formData.price, selectedProductIds, products]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

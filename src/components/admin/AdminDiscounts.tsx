@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 
 interface Discount {
@@ -7,77 +7,110 @@ interface Discount {
   type: 'percentage' | 'fixed';
   value: number;
   description: string;
-  validFrom: string;
-  validUntil: string;
-  usageLimit: number;
-  usageCount: number;
+  valid_from: string;
+  valid_until: string;
+  usage_limit: number;
+  usage_count: number;
   active: boolean;
 }
 
-const initialDiscounts: Discount[] = [
-  {
-    id: 1,
-    code: 'SUMMER20',
-    type: 'percentage',
-    value: 20,
-    description: 'Summer sale discount',
-    validFrom: '2024-06-01',
-    validUntil: '2024-08-31',
-    usageLimit: 100,
-    usageCount: 45,
-    active: true
-  },
-  {
-    id: 2,
-    code: 'WELCOME10',
-    type: 'percentage',
-    value: 10,
-    description: 'New customer discount',
-    validFrom: '2024-01-01',
-    validUntil: '2024-12-31',
-    usageLimit: 0,
-    usageCount: 156,
-    active: true
-  }
-];
-
 const AdminDiscounts = () => {
-  const [discounts, setDiscounts] = useState<Discount[]>(initialDiscounts);
+  const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleDelete = (id: number) => {
+  useEffect(() => {
+    const fetchDiscounts = async () => {
+      try {
+        const response = await fetch('/api/discounts');
+        if (!response.ok) throw new Error('Failed to fetch discounts');
+        const data = await response.json();
+        setDiscounts(data);
+      } catch (error) {
+        console.error('Failed to fetch discounts:', error);
+        alert('Error loading discounts. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDiscounts();
+  }, []);
+
+  const handleSubmit = async (formData: Omit<Discount, 'id' | 'usage_count'>) => {
+    try {
+      const method = editingDiscount ? 'PUT' : 'POST';
+      const url = editingDiscount 
+        ? `/api/discounts/${editingDiscount.id}` 
+        : '/api/discounts';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) throw new Error('Failed to save discount');
+      const savedDiscount = await response.json();
+
+      setDiscounts(prev => {
+        if (editingDiscount) {
+          return prev.map(d => d.id === savedDiscount.id ? savedDiscount : d);
+        }
+        return [...prev, savedDiscount];
+      });
+
+      setIsModalOpen(false);
+      setEditingDiscount(null);
+    } catch (error) {
+      console.error('Failed to save discount:', error);
+      alert('Error saving discount. Please try again.');
+    }
+  };
+
+  const handleDelete = async (id: number) => {
     if (confirm('Are you sure you want to delete this discount?')) {
-      setDiscounts(prev => prev.filter(d => d.id !== id));
+      try {
+        const response = await fetch(`/api/discounts/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) throw new Error('Failed to delete discount');
+        setDiscounts(prev => prev.filter(d => d.id !== id));
+      } catch (error) {
+        console.error('Failed to delete discount:', error);
+        alert('Error deleting discount. Please try again.');
+      }
     }
   };
 
-  const handleSubmit = (formData: Omit<Discount, 'id' | 'usageCount'>) => {
-    if (editingDiscount) {
+  const toggleActive = async (id: number) => {
+    try {
+      const discount = discounts.find(d => d.id === id);
+      if (!discount) return;
+
+      const response = await fetch(`/api/discounts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !discount.active }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update discount status');
+      const updatedDiscount = await response.json();
+
       setDiscounts(prev =>
-        prev.map(d =>
-          d.id === editingDiscount.id
-            ? { ...formData, id: d.id, usageCount: d.usageCount }
-            : d
-        )
+        prev.map(d => d.id === id ? updatedDiscount : d)
       );
-    } else {
-      const newDiscount = {
-        ...formData,
-        id: Math.max(...discounts.map(d => d.id)) + 1,
-        usageCount: 0
-      };
-      setDiscounts(prev => [...prev, newDiscount]);
+    } catch (error) {
+      console.error('Failed to update discount status:', error);
+      alert('Error updating discount status. Please try again.');
     }
-    setIsModalOpen(false);
-    setEditingDiscount(null);
   };
 
-  const toggleActive = (id: number) => {
-    setDiscounts(prev =>
-      prev.map(d => (d.id === id ? { ...d, active: !d.active } : d))
-    );
-  };
+  if (isLoading) {
+    return <div className="text-white">Loading discounts...</div>;
+  }
 
   return (
     <div>
@@ -138,11 +171,11 @@ const AdminDiscounts = () => {
                     : `$${discount.value}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  {discount.usageCount}
-                  {discount.usageLimit > 0 && ` / ${discount.usageLimit}`}
+                  {discount.usage_count}
+                  {discount.usage_limit > 0 && ` / ${discount.usage_limit}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                  {new Date(discount.validUntil).toLocaleDateString()}
+                  {new Date(discount.valid_until).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
@@ -205,7 +238,7 @@ const AdminDiscounts = () => {
 
 interface DiscountFormProps {
   initialData: Discount | null;
-  onSubmit: (data: Omit<Discount, 'id' | 'usageCount'>) => void;
+  onSubmit: (data: Omit<Discount, 'id' | 'usage_count'>) => void;
   onCancel: () => void;
 }
 
@@ -219,9 +252,9 @@ const DiscountForm: React.FC<DiscountFormProps> = ({
     type: initialData?.type || 'percentage',
     value: initialData?.value || 0,
     description: initialData?.description || '',
-    validFrom: initialData?.validFrom || new Date().toISOString().split('T')[0],
-    validUntil: initialData?.validUntil || '',
-    usageLimit: initialData?.usageLimit || 0,
+    valid_from: initialData?.valid_from || new Date().toISOString().split('T')[0],
+    valid_until: initialData?.valid_until || '',
+    usage_limit: initialData?.usage_limit || 0,
     active: initialData?.active ?? true
   });
 
@@ -295,8 +328,8 @@ const DiscountForm: React.FC<DiscountFormProps> = ({
           </label>
           <input
             type="date"
-            value={formData.validFrom}
-            onChange={e => setFormData(prev => ({ ...prev, validFrom: e.target.value }))}
+            value={formData.valid_from}
+            onChange={e => setFormData(prev => ({ ...prev, valid_from: e.target.value }))}
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#FFD513]"
             required
           />
@@ -307,8 +340,8 @@ const DiscountForm: React.FC<DiscountFormProps> = ({
           </label>
           <input
             type="date"
-            value={formData.validUntil}
-            onChange={e => setFormData(prev => ({ ...prev, validUntil: e.target.value }))}
+            value={formData.valid_until}
+            onChange={e => setFormData(prev => ({ ...prev, valid_until: e.target.value }))}
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#FFD513]"
             required
           />
@@ -321,8 +354,8 @@ const DiscountForm: React.FC<DiscountFormProps> = ({
         </label>
         <input
           type="number"
-          value={formData.usageLimit}
-          onChange={e => setFormData(prev => ({ ...prev, usageLimit: parseInt(e.target.value) }))}
+          value={formData.usage_limit}
+          onChange={e => setFormData(prev => ({ ...prev, usage_limit: parseInt(e.target.value) }))}
           className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#FFD513]"
           min="0"
         />
